@@ -164,41 +164,48 @@ def g_aulas():
     profs = db.listar_professoras()
     alunos = db.listar_alunos()
 
-    with st.expander("➕ Registrar nova aula"):
-        c = st.columns(4)
-        a_aluno = c[0].selectbox("Aluno", [a["nome"] for a in alunos], key="na_aluno")
-        a_prof = c[1].selectbox("Professora", [p["nome"] for p in profs], key="na_prof")
-        a_data = c[2].date_input("Data", value=date.today(), key="na_data")
-        a_dur = c[3].number_input("Duração (h)", 0.5, 5.0, 1.0, 0.5, key="na_dur")
-        c2 = st.columns(4)
-        al = next(x for x in alunos if x["nome"] == a_aluno)
-        pr = next(x for x in profs if x["nome"] == a_prof)
-        valor_sug = al["valor_hora"] * a_dur
-        a_valor = c2[0].number_input("Valor da aula (R$)", 0.0, value=float(valor_sug),
-                                     key="na_valor")
-        a_hora = c2[1].text_input("Horário", "14:00", key="na_hora")
-        if c2[3].button("Salvar aula", type="primary"):
-            mes_nome = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-                        "Julho", "Agosto", "Setembro", "Outubro", "Novembro",
-                        "Dezembro"][a_data.month]
-            db.inserir_aula({
-                "data": str(a_data), "mes": mes_nome,
-                "semana": a_data.isocalendar()[1],
-                "aluno_id": al["id"], "professora_id": pr["id"],
-                "horario": a_hora, "duracao": a_dur,
-                "rep_hora": pr["repasse_hora"], "rep_ajuda": pr["ajuda_custo"],
-                "total_repasse": pr["repasse_hora"] * a_dur + pr["ajuda_custo"],
-                "valor_aula": a_valor, "status_pagamento": "Pendente"})
-            st.success("Aula registrada!"); st.rerun()
+    if not alunos or not profs:
+        st.info("Cadastre ao menos um aluno e uma professora para registrar aulas. "
+                "Se você ainda não importou os dados, faça isso primeiro.")
+    else:
+        with st.expander("➕ Registrar nova aula"):
+            c = st.columns(4)
+            a_aluno = c[0].selectbox("Aluno", [a["nome"] for a in alunos], key="na_aluno")
+            a_prof = c[1].selectbox("Professora", [p["nome"] for p in profs], key="na_prof")
+            a_data = c[2].date_input("Data", value=date.today(), key="na_data")
+            a_dur = c[3].number_input("Duração (h)", 0.5, 5.0, 1.0, 0.5, key="na_dur")
+            c2 = st.columns(4)
+            al = next(x for x in alunos if x["nome"] == a_aluno)
+            pr = next(x for x in profs if x["nome"] == a_prof)
+            valor_sug = al["valor_hora"] * a_dur
+            a_valor = c2[0].number_input("Valor da aula (R$)", 0.0, value=float(valor_sug),
+                                         key="na_valor")
+            a_hora = c2[1].text_input("Horário", "14:00", key="na_hora")
+            if c2[3].button("Salvar aula", type="primary"):
+                mes_nome = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                            "Julho", "Agosto", "Setembro", "Outubro", "Novembro",
+                            "Dezembro"][a_data.month]
+                db.inserir_aula({
+                    "data": str(a_data), "mes": mes_nome,
+                    "semana": a_data.isocalendar()[1],
+                    "aluno_id": al["id"], "professora_id": pr["id"],
+                    "horario": a_hora, "duracao": a_dur,
+                    "rep_hora": pr["repasse_hora"], "rep_ajuda": pr["ajuda_custo"],
+                    "total_repasse": pr["repasse_hora"] * a_dur + pr["ajuda_custo"],
+                    "valor_aula": a_valor, "status_pagamento": "Pendente"})
+                st.success("Aula registrada!"); st.rerun()
 
     aulas = db.listar_aulas()
-    rows = [{"id": a["id"], "Data": pdf._data_br(a["data"]),
+    if not aulas:
+        st.info("Nenhuma aula registrada ainda.")
+        return
+
+    rows = [{"Data": pdf._data_br(a["data"]),
              "Aluno": a["alunos"]["nome"], "Professora": a["professoras"]["nome"],
              "Duração": f"{a['duracao']:.0f}h", "Valor": brl(a["valor_aula"]),
              "Repasse": brl(a["total_repasse"]), "Pagamento": a["status_pagamento"]}
             for a in aulas]
-    st.dataframe(pd.DataFrame(rows).drop(columns=["id"]), use_container_width=True,
-                 hide_index=True)
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     st.divider()
     st.subheader("Gerar recibo de aula")
