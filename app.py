@@ -307,6 +307,21 @@ def g_profs():
         cols[3].write(f"{f['total_aulas']} aulas")
         cols[4].write(f"A receber: **{brl(f['total'])}**")
 
+    st.divider()
+    st.subheader("🔑 Gerenciar PINs de acesso")
+    st.caption("Defina ou troque o PIN que cada professora usa para entrar.")
+    cpin = st.columns([2, 1.5, 1.5])
+    prof_sel = cpin[0].selectbox("Professora", [p["nome"] for p in profs],
+                                 key="pin_prof_sel")
+    novo_pin = cpin[1].text_input("Novo PIN (4 dígitos)", max_chars=4, key="pin_novo")
+    if cpin[2].button("Salvar PIN", type="primary", key="pin_salvar"):
+        if novo_pin and novo_pin.isdigit() and len(novo_pin) == 4:
+            pid = next(p["id"] for p in profs if p["nome"] == prof_sel)
+            db.atualizar_pin(pid, novo_pin)
+            st.success(f"PIN de {prof_sel} atualizado!")
+        else:
+            st.error("O PIN deve ter exatamente 4 números.")
+
 
 def g_fechamentos():
     st.title("Fechamentos de repasse")
@@ -354,7 +369,7 @@ def app_professora():
         st.markdown(B.LOGO_HTML, unsafe_allow_html=True)
         st.write("")
         st.write(f"Olá, **{p['nome']}** 🎒")
-        page = st.radio("Menu", ["📅 Minhas aulas", "💰 Meu repasse"],
+        page = st.radio("Menu", ["📅 Minhas aulas", "💰 Meu repasse", "🔑 Trocar meu PIN"],
                         label_visibility="collapsed")
         st.divider()
         if st.button("↩ Sair"):
@@ -377,7 +392,7 @@ def app_professora():
                  "Duração": f"{a['duracao']:.0f}h"} for a in aulas]
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    else:  # Meu repasse
+    elif "Meu repasse" in page:
         st.title("Meu repasse")
         st.caption("O quanto você tem a receber")
         fech = db.get_fechamento(p["id"], MES_ANO)
@@ -407,6 +422,25 @@ def app_professora():
                 f'<b>O repasse de {MES_LABEL} ainda não foi fechado pela ESPE.</b><br>'
                 f'Assim que a gestora fechar o mês, o valor e o detalhamento aparecem aqui.'
                 f'</div>', unsafe_allow_html=True)
+
+    else:  # Trocar meu PIN
+        st.title("Trocar meu PIN")
+        st.caption("Defina um novo PIN de 4 números para entrar no sistema.")
+        atual = st.text_input("PIN atual", type="password", max_chars=4, key="pin_at")
+        novo = st.text_input("Novo PIN", type="password", max_chars=4, key="pin_nv")
+        conf = st.text_input("Confirme o novo PIN", type="password", max_chars=4,
+                             key="pin_cf")
+        if st.button("Salvar novo PIN", type="primary"):
+            if atual != p["pin"]:
+                st.error("O PIN atual está incorreto.")
+            elif not (novo.isdigit() and len(novo) == 4):
+                st.error("O novo PIN deve ter exatamente 4 números.")
+            elif novo != conf:
+                st.error("A confirmação não confere com o novo PIN.")
+            else:
+                db.atualizar_pin(p["id"], novo)
+                st.session_state.prof["pin"] = novo
+                st.success("PIN atualizado! Use o novo PIN no próximo acesso.")
 
 
 # ---------------- ROTEAMENTO ----------------
